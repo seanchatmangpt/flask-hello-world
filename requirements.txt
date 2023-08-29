@@ -1,2 +1,6 @@
 Flask
 Gunicorn
+flask_cors
+python-dotenv
+pystrapi
+typing_extensions
