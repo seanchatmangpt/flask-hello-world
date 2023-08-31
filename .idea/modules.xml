@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../chief/.idea/chief.iml" filepath="$PROJECT_DIR$/../chief/.idea/chief.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/flask-hello-world.iml" filepath="$PROJECT_DIR$/.idea/flask-hello-world.iml" />
       <module fileurl="file://$PROJECT_DIR$/../nextjs-hello-world/.idea/nextjs-hello-world.iml" filepath="$PROJECT_DIR$/../nextjs-hello-world/.idea/nextjs-hello-world.iml" />
     </modules>

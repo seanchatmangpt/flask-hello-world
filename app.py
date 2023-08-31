@@ -1,17 +1,13 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-from message import Message
+from strapi_model_mixin import *
 
 app = Flask(__name__)
 CORS(app)
 
-
-@app.route('/')
-def hello_world():
-    msg = Message().get_one("1")
-    return jsonify(msg)
-
+for model in [Message, World, Author, Blog]:
+    model.add_routes(app)
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=True)
