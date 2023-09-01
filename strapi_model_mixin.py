@@ -317,10 +317,16 @@ class StrapiModelMixin:
                 if data[rel_name] is None:
                     continue
                 elif isinstance(data[rel_name], list):
+                    # If all the are dicts, then don't do anything
+                    if all(isinstance(item, dict) for item in data[rel_name]):
+                        continue
                     data[rel_name] = [
                         {"id": getattr(rel_obj, "id")} for rel_obj in data[rel_name]
                     ]
                 else:
+                    # If it's a dict, then don't do anything
+                    if isinstance(data[rel_name], dict):
+                        continue
                     data[rel_name] = {"id": getattr(data[rel_name], "id")}
 
     @classmethod
@@ -352,6 +358,7 @@ class StrapiModelMixin:
     @classmethod
     def fetch_one_route(cls, _id: str | int):
         args = cls._extract_request_args()
+        args["_id"] = _id
         return cls.fetch_one(**args)
 
     @classmethod
