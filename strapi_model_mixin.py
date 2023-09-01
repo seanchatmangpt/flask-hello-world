@@ -1,16 +1,13 @@
 from __future__ import annotations
-import ast
 
 import json
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field
 from functools import partial
-from urllib.parse import unquote
 
 from dotenv import load_dotenv
-from flask import jsonify, Flask, request
-from typing import Dict, Type, Optional, TypeVar, List, Union, Any, get_type_hints
+from flask import Flask, request
+from typing import Dict, Type, Optional, TypeVar, List, Union, get_type_hints
 import os
 
 from pystrapi import StrapiClientSync, PublicationState
@@ -20,6 +17,8 @@ from pystrapi.types import (
     PopulationParameter,
     PaginationParameter,
 )
+
+class_registry = {}
 
 # Load environment variables
 load_dotenv(".env")
@@ -45,10 +44,10 @@ def convert_filters_to_dict(filter_str):
     try:
         # If there's an equal sign, wrap the string in curlies to form a valid JSON object
         if "=" in filter_str:
-            filter_str = "{\"" + filter_str + "}"
+            filter_str = '{"' + filter_str + "}"
 
         # Replace the equal sign with a colon for JSON compatibility
-        filter_str = filter_str.replace("=", "\":")
+        filter_str = filter_str.replace("=", '":')
 
         # Replace single quotes with double quotes for JSON compatibility
         json_compatible_str = filter_str.replace("'", '"')
@@ -58,7 +57,9 @@ def convert_filters_to_dict(filter_str):
 
     except json.JSONDecodeError:
         # Handle parsing exceptions
-        logger.error(f"An error occurred while converting filters string to dict: Invalid string {filter_str}")
+        logger.error(
+            f"An error occurred while converting filters string to dict: Invalid string {filter_str}"
+        )
         return None
 
 
@@ -92,15 +93,20 @@ class StrapiModelMixin:
     def get_one(
         cls: Type[T],
         _id: str | int,
-        populate: Optional[PopulationParameter] = None,
+        populate: Optional[PopulationParameter] = "*",
         fields: Optional[List[str]] = None,
+        **kwargs,
     ) -> Optional[T]:
         response = cls.fetch_one(_id, populate, fields)
         if response:
-            obj = cls(**response["data"]["attributes"])
-            obj.id = response["data"]["id"]
-            cls._populate_relationships(obj)
-            return obj
+            try:
+                obj = cls(**response["data"]["attributes"])
+                obj.id = response["data"]["id"]
+                cls._populate_relationships(obj)
+                return obj
+            except Exception as e:
+                logger.error(f"An error occurred while parsing response: {e}")
+                return None
         return None
 
     @classmethod
@@ -114,9 +120,10 @@ class StrapiModelMixin:
                 type_hint.__origin__, list
             ):
                 type_argument = type_hint.__args__[0]
-                relationships[field_name] = type_argument
-            elif "strapi_model_mixin" in str(type_hint):
-                relationships[field_name] = type_hint
+                relationships[field_name] = class_registry[type_hint.__args__[0].__forward_arg__]
+            # if it is a forward reference, we need to resolve it
+            elif hasattr(type_hint, "__forward_arg__"):
+                relationships[field_name] = class_registry[type_hint.__forward_arg__]
 
         return relationships
 
@@ -135,10 +142,11 @@ class StrapiModelMixin:
                 rel_inst.id = rel_attr["data"]["id"]
                 setattr(obj, rel_name, rel_inst)
                 continue
-            for data in getattr(obj, rel_name)["data"]:
-                rel_inst = rel_cls(**data["attributes"])
-                rel_inst.id = data["id"]
-                inst_list.append(rel_inst)
+            if getattr(obj, rel_name)["data"] is not None:
+                for data in getattr(obj, rel_name)["data"]:
+                    rel_inst = rel_cls(**data["attributes"])
+                    rel_inst.id = data["id"]
+                    inst_list.append(rel_inst)
             setattr(obj, rel_name, inst_list)
 
     @classmethod
@@ -146,7 +154,7 @@ class StrapiModelMixin:
         cls: Type[T],
         sort: Optional[List[str]] = None,
         filters: Optional[dict] = None,
-        populate: Optional[PopulationParameter] = None,
+        populate: Optional[PopulationParameter] = "*",
         fields: Optional[List[str]] = None,
         pagination: Optional[PaginationParameter] = None,
         publication_state: Optional[Union[str, PublicationState]] = None,
@@ -213,39 +221,52 @@ class StrapiModelMixin:
                 return True
         return False
 
-
     @classmethod
     def _extract_request_args(cls):
         """
         Helper function to extract request arguments and set them to None if not provided.
         """
-        filters = convert_filters_to_dict(request.args.get('filters'))
-        args = {'sort': request.args.getlist('sort') if request.args.get('sort') else None,
-                'filters': filters if request.args.get('filters') else None,
-                'populate': request.args.get('populate') if request.args.get('populate') else None,
-                'fields': request.args.getlist('fields') if request.args.get('fields') else None,
-                'pagination': json.loads(request.args.get('pagination')) if request.args.get('pagination') else None,
-                'publication_state': request.args.get('publication_state') if request.args.get(
-                    'publication_state') else None,
-                'get_all': bool(request.args.get('get_all')) if request.args.get('get_all') else None}
+        filters = None
+        if request.args.get("filters"):
+            convert_filters_to_dict(request.args.get("filters"))
+        args = {
+            "sort": request.args.getlist("sort") if request.args.get("sort") else None,
+            "filters": filters if request.args.get("filters") else None,
+            "populate": request.args.get("populate")
+            if request.args.get("populate")
+            else None,
+            "fields": request.args.getlist("fields")
+            if request.args.get("fields")
+            else None,
+            "pagination": json.loads(request.args.get("pagination"))
+            if request.args.get("pagination")
+            else None,
+            "publication_state": request.args.get("publication_state")
+            if request.args.get("publication_state")
+            else None,
+            "_id": request.args.get("id") if request.args.get("id") else None,
+            "get_all": bool(request.args.get("get_all"))
+            if request.args.get("get_all")
+            else None,
+        }
+        if request.data:
+            args["data"] = json.loads(request.data)
         return args
 
     @classmethod
     def fetch_all(
-            cls,
-            sort: Optional[List[str]] = None,
-            filters: Optional[dict] = None,
-            populate: Optional[PopulationParameter] = None,
-            fields: Optional[List[str]] = None,
-            pagination: Optional[PaginationParameter] = None,
-            publication_state: Optional[Union[str, PublicationState]] = None,
-            get_all: bool = False,
-            batch_size: int = 100,
-            **kwargs,
+        cls,
+        sort: Optional[List[str]] = None,
+        filters: Optional[dict] = None,
+        populate: Optional[PopulationParameter] = None,
+        fields: Optional[List[str]] = None,
+        pagination: Optional[PaginationParameter] = None,
+        publication_state: Optional[Union[str, PublicationState]] = None,
+        get_all: bool = False,
+        batch_size: int = 100,
+        **kwargs,
     ) -> StrapiEntriesResponse:
-        logger.info(
-            f"Fetching all entries from {cls.model_path} with parameters {kwargs}"
-        )
+        logger.info(f"Fetching all entries from {cls.model_path}")
         response = cls.client.get_entries(
             plural_api_id=str(cls.model_path),
             sort=sort,
@@ -255,7 +276,7 @@ class StrapiModelMixin:
             pagination=pagination,
             publication_state=publication_state,
             get_all=get_all,
-            **kwargs,
+            batch_size=batch_size,
         )
         logger.debug(f"Retrieved {len(response)} entries from {cls.model_path}")
         return response
@@ -266,15 +287,15 @@ class StrapiModelMixin:
         _id: str | int,
         populate: Optional[PopulationParameter] = None,
         fields: Optional[List[str]] = None,
+        **kwargs,
     ) -> StrapiEntryResponse:
         logger.info(f"Fetching entry with ID {_id} from {cls.model_path}")
-        args = cls._extract_request_args()
 
         response = cls.client.get_entry(
             plural_api_id=str(cls.model_path),
             document_id=int(_id),
-            populate=args["populate"],
-            fields=args["fields"],
+            populate=populate,
+            fields=fields,
         )
         logger.debug(f"Retrieved entry from {cls.model_path}: {response}")
         return response
@@ -329,7 +350,7 @@ class StrapiModelMixin:
         return cls.fetch_all(**args)
 
     @classmethod
-    def fetch_one_route(cls):
+    def fetch_one_route(cls, _id: str | int):
         args = cls._extract_request_args()
         return cls.fetch_one(**args)
 
@@ -338,9 +359,21 @@ class StrapiModelMixin:
         args = cls._extract_request_args()
         return cls.create(**args)
 
+    @classmethod
+    def update_route(cls, _id: str | int):
+        args = cls._extract_request_args()
+        args["_id"] = _id
+        return cls.update(**args)
+
+    @classmethod
+    def delete_route(cls, _id: str | int):
+        args = cls._extract_request_args()
+        args["_id"] = _id
+        return cls.delete_one(**args)
 
     @classmethod
     def add_routes(cls, app: Flask) -> None:
+        class_registry[cls.__name__] = cls
         model_name = cls.model_path
 
         app.add_url_rule(
@@ -358,73 +391,26 @@ class StrapiModelMixin:
         app.add_url_rule(
             f"/{model_name}",
             f"{model_name}_create",
-            partial(cls.create),
+            partial(cls.create_route),
             methods=["POST"],
         )
         app.add_url_rule(
             f"/{model_name}/<string:_id>",
             f"{model_name}_update",
-            partial(cls.update),
+            partial(cls.update_route),
             methods=["PUT"],
         )
         app.add_url_rule(
             f"/{model_name}/<string:_id>",
             f"{model_name}_delete",
-            partial(cls.delete_one),
+            partial(cls.delete_route),
             methods=["DELETE"],
         )
 
 
-@dataclass
-class Message(StrapiModelMixin):
-    id: str = None
-    content: str = None
-    createdAt: str = None
-    updatedAt: str = None
-    publishedAt: str = None
-    model_path: str = "messages"
-
-
-@dataclass
-class Author(StrapiModelMixin):
-    id: str = None
-    name: str = None
-    email: str = None
-    avatar: str = None
-    createdAt: str = None
-    updatedAt: str = None
-    publishedAt: str = None
-    model_path: str = "authors"
-
-
-@dataclass
-class Blog(StrapiModelMixin):
-    id: str = None
-    text: str = None
-    createdAt: str = None
-    updatedAt: str = None
-    publishedAt: str = None
-    model_path: str = "blogs"
-    author: Author = None
-
-
-@dataclass
-class World(StrapiModelMixin):
-    id: str = None
-    guid: str = None
-    intro: str = None
-    createdAt: str = None
-    updatedAt: str = None
-    publishedAt: str = None
-    model_path: str = "worlds"
-    blogs: List[Blog] = field(default_factory=list)
-    messages: List[Message] = field(default_factory=list)
-    author: Author = None
-
-
 # if __name__ == "__main__":
-    # msg = Message(content="Hello World2!")
-    # msg.upsert()
-    # msgs = Message.get_all(pagination={"limit": 1}, sort=["createdAt"])
-    # msg = Message.get_one("1")
-    # print(world)
+# msg = Message(content="Hello World2!")
+# msg.upsert()
+# msgs = Message.get_all(pagination={"limit": 1}, sort=["createdAt"])
+# msg = Message.get_one("1")
+# print(world)

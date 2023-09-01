@@ -1,5 +1,10 @@
 from faker import Faker
 
+from models.author import Author
+from models.blog import Blog
+from models.message import Message
+from models.world import World
+
 fake = Faker()
 
 
@@ -19,7 +24,7 @@ def client():
 # Test to check if Flask app is up and running
 def test_index(client):
     msg = Message.get_one(1)
-    assert msg.content == "Hello, World!"
+    assert msg.content == "Hello World!"
 
 
 # Test fetching all messages
@@ -29,7 +34,7 @@ def test_get_all_messages(client):
 
 
 def test_world(client):
-    world = World.get_one(1, populate=["blogs", "author"])
+    world = World.get_one(1)
     print(world)
     assert len(world.blogs) > 0
 
