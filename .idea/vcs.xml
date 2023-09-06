@@ -3,6 +3,8 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../chief" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../fgn" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../lchop" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/../nextjs-hello-world" vcs="Git" />
   </component>
 </project>

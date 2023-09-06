@@ -7,10 +7,12 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="Python 3.11 (flask-hello-world)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="nextjs-hello-world" />
     <orderEntry type="module" module-name="chief" />
+    <orderEntry type="module" module-name="fgn" />
+    <orderEntry type="module" module-name="lchop" />
   </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Jinja2" />

@@ -13,12 +13,10 @@ from app import app
 
 from strapi_model_mixin import *
 
+from conftest import client
 
-@pytest.fixture
-def client():
-    app.config["TESTING"] = True
-    with app.test_client() as client:
-        yield client
+
+
 
 
 # Test to check if Flask app is up and running

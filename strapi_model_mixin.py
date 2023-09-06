@@ -28,10 +28,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Retrieve API URL and token from environment variables
+# api_url = os.getenv("STRAPI_API_URL", "http://127.0.0.1:5000")
 api_url = os.getenv("STRAPI_API_URL", "https://strapi-27bu.onrender.com/api/")
 api_token = os.getenv(
     "STRAPI_API_TOKEN",
-    "d81f6b816636e69d7429d3dfd5e8330bea1e3b7a35c7c69b80b250398d957358883b9547e1e4f97bf06c490a5802d51194311b7ea5718155e4aa9ab177f415dca41648cee9b1a74c577dac99fb3eff2de0b2d3633a6172bacfe76b2ec6299d2bdeb5dee3ddebd0928518bd51c77cab032be17271b316ca0ca33640821433af4a",
+    "727064f5093e4f6d1a381ccf8ebedce57e39bce40fd58d551858c9743e5f1723a7c52e289b776742cbd9b11c7bba50c085b22a7a743e6744d73ce76662eea7cf9d06cb07378260a55ffe7e7fc7d095cee763935f8fe38a617dcf1c9b87ee59c7772c84d35a333e7d3c4ef70bd246720f9b59310aea602dfdf86bc817fbc7ff45",
 )
 
 
@@ -380,6 +381,7 @@ class StrapiModelMixin:
 
     @classmethod
     def add_routes(cls, app: Flask) -> None:
+        logger.info(f"Adding routes for {cls.model_path}")
         class_registry[cls.__name__] = cls
         model_name = cls.model_path
 
