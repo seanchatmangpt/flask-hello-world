@@ -1,6 +1,6 @@
 import json
 
-from bunch import Bunch
+from munch import Munch
 
 from models.linkedin_profile import LinkedInProfile
 
@@ -12,7 +12,7 @@ from jinja2 import Template
 
 
 with open(fp, "r") as f:
-    data = Bunch(json.loads(f.read()))
+    data = Munch(json.loads(f.read()))
 
     profiles = LinkedInProfile.get_all()
 
